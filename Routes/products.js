@@ -7,231 +7,121 @@ const isAdmin = require("../middleware/admin")
 const productmodule = require("../module/product")
 const formidable = require("express-formidable")
 const fs = require("fs")
-const cartmodule = require("../module/cart")
+ const order = require("../module/order")
 const ObjectId = require('mongodb').ObjectId;
+ 
 
-//size color
-Router.get ('/fetchsizecolor/:id',async(req,res)=>{
-    let id = req.params.id
-  
-   
-     
-    
-    try{
-        const products = await productmodule.findById(id).populate({ path: 'category', select: 'name' }).select("-photo0").select("-photo1").select("-photo2").select("-photo3").select("-photo")
-        let name = products.name
-       
-        const  formname = await productmodule.find({name}).select("-photo0").select("-photo1").select("-photo2").select("-photo3")
-        
-        let colorsize = { }
-       for(let item of formname){
-        if(Object.keys(colorsize).includes(item.color)){
-           colorsize[item.color][item.size] = {_id : item._id}
-         
-        }
-        else{
-          colorsize[item.color] = {}
-          colorsize[item.color][item.size] = {_id : item._id}
-          
-        }
-       }
-       res.json({products:JSON.parse(JSON.stringify(products)),colorsize:JSON.parse(JSON.stringify(colorsize))})
-         
-         
-    }
-    catch(error){
-         res.status(500).send("internal error")
-    }
-})
+
 
 
 
 //addproduct
  
-Router.post("/addproduct",middle,isAdmin,formidable() ,async(req,res)=>{
-    let { name, description, price, category, quantity,salediscount, sale,People ,wdprice,color,size,slug} =
-    req.fields;
-    
-    wdprice = price
-    if(sale && salediscount){
-      
-      const discountedAmount = (salediscount / 100) * price;
-      const finalAmount = price - discountedAmount;
-      price = finalAmount.toFixed(0)
-    }
-    const { photo0,photo1,photo2,photo3 } = req.files;
+Router.post("/addproduct",async(req,res)=>{
+    let { name, salingprice,category, Serialrequired,MRP,othername} = req.body;
+   
+
+     console.log(req.body)
     switch (true) {
-        case !name:
-          return res.status(500).send({ error: "Name is Required" });
-        case !People:
-          return res.status(500).send({ error: "People is Required" });
-        case !size:
-          return res.status(500).send({ error: "size is Required" });
-        case !slug:
-          return res.status(500).send({ error: "slug is Required" });
-        case !color:
-          return res.status(500).send({ error: "color is Required" });
-        case !description:
-          return res.status(500).send({ error: "Description is Required" });
-        case !price:
-          return res.status(500).send({ error: "Price is Required" });
-        case !category:
-          return res.status(500).send({ error: "Category is Required" });
-        case !quantity:
-          return res.status(500).send({ error: "Quantity is Required" });
-        case photo0 && photo0.size > 1000000:
-          return res
-            .status(500)
-            .send({ error: "photo is Required and should be less then 1mb" });
-        case photo1 && photo1.size > 1000000:
-          return res
-            .status(500)
-            .send({ error: "photos is Required and should be less then 1mb" });
-        case photo2 && photo2.size > 1000000:
-          return res
-            .status(500)
-            .send({ error: "photos is Required and should be less then 1mb" });
-        case photo3 && photo3.size > 1000000:
-          return res
-            .status(500)
-            .send({ error: "photos is Required and should be less then 1mb" });
-      }
- 
-    try{
-        
-         
-        const checkproduct = await productmodule.findOne({ slug });
+      case !name:
+        return res.status(500).send({ error: 'Name is Required' });
+      case !salingprice:
+        return res.status(500).send({ error: 'Saling price is Required' });
+      case !MRP:
+        return res.status(500).send({ error: 'MRP is Required' });
+      case !category:
+        return res.status(500).send({ error: 'Category is Required' });
+    }
+    
+        const checkproduct = await productmodule.findOne({ name });
+        const othername1 = await productmodule.findOne( {othername :othername}).select("othername")
+  
         if(checkproduct){
             return res.status(200).send({
                 success: false,
                 message: "product Already Exisits",
               });
         }
+
+        if(othername1){
+          console.log("yery")
+            return res.status(200).send({
+                success: false,
+                message: "serial Already Exisits",
+                data:othername1
+              });
+        }
+
+
         const product1 = new productmodule({
-           name, description, price, category,wdprice, quantity,salediscount,People, sale ,color,size,slug,
-           review:{reviews : 0 , totalrating: 0} 
+           name, salingprice, category ,MRP,othername,Serialrequired
           
         })
-        if (photo0) {
-            product1.photo0.data = fs.readFileSync(photo0.path);
-            product1.photo0.contentType = photo0.type;
-          }
-        if (photo1) {
-            product1.photo1.data = fs.readFileSync(photo1.path);
-            product1.photo1.contentType = photo1.type;
-          }
-        if (photo2) {
-            product1.photo2.data = fs.readFileSync(photo2.path);
-            product1.photo2.contentType = photo2.type;
-          }
-        if (photo3) {
-            product1.photo3.data = fs.readFileSync(photo3.path);
-            product1.photo3.contentType = photo3.type;
-          }
+       
         const saveproduct = await product1.save()
         res.json(saveproduct)
-    } catch (error) {
-         res.status(500).send("internal errror")
-    }
-})
-
-//update notes
-Router.put('/updateproduct/:id',middle,isAdmin,formidable(),async(req,res)=>{
-
     
-
-     let { name, description, price, category,People, quantity,salediscount,wdprice, sale ,color,size,slug} =
-    req.fields;
-    const { photo0,photo1,photo2,photo3 } = req.files;
-       wdprice = price
- 
-
-const updateFields = {
-  name,
-  description,
-  price,
-  category,
-  quantity,
-  People,
-  wdprice,
-  color,
-  size,
-  slug
-};
-
-    if(sale !== 'undefined' && salediscount !== 'undefined'){
-       const discountedAmount = (salediscount / 100) * price;
-      const finalAmount = price - discountedAmount;
-      price =  finalAmount 
-       // updateFields.sale = sale;
-      // updateFields.salediscount = salediscount;
-    }
-   
-
-    if( sale == 'undefined'  ){
-       
-        const item = await productmodule.findByIdAndUpdate(
-        req.params.id,
-        { $unset: { sale: 1, salediscount: 1 } },
-        { new: true } // Set { new: true } to return the updated document
-      );
-      
-    }
- 
-    
-
-    if ( sale !== 'undefined' &&   salediscount !== 'undefined') {
-      updateFields.sale = sale;
-      updateFields.salediscount = salediscount;
-     }
- 
-     const products = await productmodule.findByIdAndUpdate(
-      req.params.id,
-      updateFields,
-      { new: true }
-    );
-    
- 
-  
-    if (photo0) {
-    
-      products.photo0.data = fs.readFileSync(photo0.path);
-      products.photo0.contentType = photo0.type;
-    }
-    if (photo1) {
-      products.photo1.data = fs.readFileSync(photo1.path);
-      products.photo1.contentType = photo1.type;
-    }
-  if (photo2) {
-      products.photo2.data = fs.readFileSync(photo2.path);
-      products.photo2.contentType = photo2.type;
-    }
-  if (photo3) {
-      products.photo3.data = fs.readFileSync(photo3.path);
-      products.photo3.contentType = photo3.type;
-    }
-
-    
-
-    await products.save();
-
-
-    res.status(201).send({
-      success: true,
-      message: "Product Updated Successfully",
-      products,
-    });
-  
- 
-   
 })
 
 
-Router.delete("/deleteproduct/:id",middle,isAdmin,async(req,res)=>{
+//get top 5 products 
+
+
+
+
+
+Router.get('/top5products', async(req, res) => {
+  try {
+    const top5Products = await productmodule.find().sort({ totalsale: -1 }).limit(5);
+    res.json(top5Products);
+  } catch (error) {
+    console.error('Error fetching top 5 products', error);
+    res.status(500).send('Server Error');
+  }
+});
+
+
+
+Router.put("/updateproduct/:id", async (req, res) => {
+  const { id } = req.params;
+  const {name,category,MRP,salingprice,othername } = req.body;
+ 
+
+  const getproname = await productmodule.findById(id);
+  if(name !== undefined){
+    const changeOrdername = await order.findOne({Product:getproname?.name});
+     const updatedOrder = await order.findOneAndUpdate({Product:getproname?.name}, {Product:name}, { new: true }); 
+   }
+
+   const updateData = {};
+ 
+
+  // Add fields to updateData only if they are defined
+  updateData.othername =othername
+  if (name !== undefined) updateData.name = name;
+  if (category !== undefined) updateData.category = category;
+  if (MRP !== undefined) updateData.MRP = MRP;
+  if (salingprice !== undefined) updateData.salingprice = salingprice;
+  
+  
+      const updatedOrder = await productmodule.findByIdAndUpdate(id, updateData, { new: true });
+
+      if (!updatedOrder) {
+          return res.status(404).send({ error: "product not found" });
+      }
+       res.json(updatedOrder);
+ 
+});
+
+
+Router.delete("/deleteproduct/:id", async(req,res)=>{
     try {
     
-    let product = await  productmodule.findById( req.params.id).select("-photo0").select("-photo1").select("-photo2").select("-photo3");
+    let product = await  productmodule.findById( req.params.id) 
+    console.log(product)
     if(!product){return res.status(404).send("not found")}
+let avinorder = await  order.findOne({Product:product.name}) 
+ if(avinorder){return res.status(404).send("you can't delete this product")}
      
     product =await productmodule.findByIdAndDelete(req.params.id)
     res.json({"success":"category has been deleted",product})
@@ -242,531 +132,94 @@ Router.delete("/deleteproduct/:id",middle,isAdmin,async(req,res)=>{
 })
 module.exports =Router
 
-Router.get("/getphoto/:id",async(req,res)=>{
-  try {
-    const product = await productmodule.findById(req.params.id).select("photo0").select("photo")
-    if (product.photo0.data ) {
-      res.set("Content-type", product.photo0.contentType);
-      return res.status(200).send(product.photo0.data );
-    }
-    
-  } catch (error) {
-    res.status(500).send({
-      success: false,
-      message: "Erorr while getting photo",
-      error,
-    });
-  }
-})
-
-Router.get("/getphoto1/:id",async(req,res)=>{
-  try {
-    const product = await productmodule.findById(req.params.id).select("photo1");
-    if (product.photo1.data ) {
-      res.set("Content-type", product.photo1.contentType);
-      return res.status(200).send(product.photo1.data );
-    }
-    
-  } catch (error) {
-    res.status(500).send({
-      success: false,
-      message: "Erorr while getting photo",
-      error,
-    });
-  }
-})
-Router.get("/getphoto2/:id",async(req,res)=>{
-  try {
-    const product = await productmodule.findById(req.params.id).select("photo2");
-    if (product.photo2.data ) {
-      res.set("Content-type", product.photo2.contentType);
-      return res.status(200).send(product.photo2.data );
-    }
-    
-  } catch (error) {
-    res.status(500).send({
-      success: false,
-      message: "Erorr while getting photo",
-      error,
-    });
-  }
-})
-Router.get("/getphoto3/:id",async(req,res)=>{
-  try {
-    const product = await productmodule.findById(req.params.id).select("photo3");
-    if (product.photo3.data ) {
-      res.set("Content-type", product.photo3.contentType);
-      return res.status(200).send(product.photo3.data );
-    }
-    
-  } catch (error) {
-    res.status(500).send({
-      success: false,
-      message: "Erorr while getting photo",
-      error,
-    });
-  }
-})
-
-
-
-Router.get ('/fetchproductforadmin/:page',async(req,res)=>{
-   
  
-  const perPage = 10
-  const page = req.params.page ? req.params.page : 1;
  
 
-  const {color,size,price,People,category,keyword} = req.query
- 
-     let args = {};
-     if (color ) args.color ={$in:color};
-     if (People ) args.People ={$in:People};
-     if (category ) args.category = new ObjectId(category)
-     if (size ) args.size = {$in:size}
-     if (price ) args.price = {$gte: parseInt(price[0]),$lte:parseInt(price[1])}
-     if (keyword) args.name =   { $regex: keyword, $options: "i" } 
-     if (keyword) args.description =   { $regex: keyword, $options: "i" } 
-      
+
+Router.get('/fetchproductforadmin/:page', async (req, res) => {
+  try {
+      const page = parseInt(req.params.page) || 1;
+      const limit = 20; // Number of products per page
+      const skip = (page - 1) * limit;
+
+      const products = await productmodule.aggregate([
+          { $skip: skip },
+          { $limit: limit },
+          { $sort: { _id: 1 } }, // Sort by ID or any other field
           
- 
-   
-  const sortField = req.query.sortField || 'createdAt';
-    const sortOrder = req.query.sortOrder && req.query.sortOrder === 'desc' ? -1 : 1;
-
-try {
-  
-
-  const pipeline = [
-    { $match:   args},   
-    { $skip: (page - 1) * perPage },
-    { $limit: perPage },
-    {
-      $lookup: {
-        from: 'categories',
-        localField: 'category',
-        foreignField: '_id',
-        as: 'category',
-      },
-    },
-    {
-      $project: {
-        'category.categoryphoto': 0,
-        'category.photo': 0,
-        'category.subcategories': 0,
-        'category.__v': 0,
-        __v: 0,
-        photo0: 0,
-        photo1: 0,
-        photo2: 0,
-        photo3: 0,
-        photo: 0,
-      },
-    },
-  ];
-
-
-      const product = await productmodule.aggregate(pipeline).sort({[sortField]: sortOrder})
- 
-      const products = await productmodule.find({ sale: { $exists: false } }).select('color').select('size')
-       
-   
-       
-      let uniqueColors = Array.from(new Set(products.map(item => item.color)));
-
-    res.status(200).send(
-      {
-product,
-        uniqueColors  
-      }
-
-        
-    );
-  } catch (error) {
-  
-  }
-  
-})
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//for home new product
-Router.get ('/fetchlastproduct/:page',async(req,res)=>{
-   
- 
-  const perPage = 10
-  const page = req.params.page ? req.params.page : 1;
- 
-
-  const {color,size,price,People,category,keyword} = req.query
- 
-     let args = {};
-     if (color ) args.color ={$in:color};
-     if (People ) args.People ={$in:People};
-     if (category ) args.category = new ObjectId(category)
-     if (size ) args.size = {$in:size}
-     if (price ) args.price = {$gte: parseInt(price[0]),$lte:parseInt(price[1])}
-     if (keyword) args.name =   { $regex: keyword, $options: "i" } 
-     if (keyword) args.description =   { $regex: keyword, $options: "i" } 
-      
           
-    
-  const sortField = req.query.sortField || 'createdAt';
-    const sortOrder = req.query.sortOrder && req.query.sortOrder === 'desc' ? -1 : 1;
+      ]);
+      const totalCount = await productmodule.countDocuments({});
 
-try {
-  
-
-  const pipeline = [
-    { $match: { sale: { $exists: false } } },
-    { $match:   args},   
-    { $group: { _id: '$name', doc: { $first: '$$ROOT' } } },
-    { $replaceRoot: { newRoot: '$doc' } },
-    { $skip: (page - 1) * perPage },
-    { $limit: perPage },
-    {
-      $lookup: {
-        from: 'categories',
-        localField: 'category',
-        foreignField: '_id',
-        as: 'category',
-      },
-    },
-    {
-      $project: {
-        'category.categoryphoto': 0,
-        'category.photo': 0,
-        'category.subcategories': 0,
-        'category.__v': 0,
-        __v: 0,
-        photo0: 0,
-        photo1: 0,
-        photo2: 0,
-        photo3: 0,
-        photo: 0,
-      },
-    },
-  ];
-
-
-      const product = await productmodule.aggregate(pipeline).sort({[sortField]: sortOrder})
  
-      const products = await productmodule.find({ sale: { $exists: false } }).select('color').select('size')
-       
-   
-       
-      let uniqueColors = Array.from(new Set(products.map(item => item.color)));
-
-    res.status(200).send(
-      {
-product,
-        uniqueColors  
-      }
-
-        
-    );
-       
-  } catch (error) {
-  
+      res.status(200).send({ products ,totalCount});
+  } catch (err) {
+      console.error(err);
+      res.status(500).send({ error: 'An error occurred while fetching products' });
   }
-})
+});
+
+//fetch product by othername 
+
+Router.get('/fetchsingleproduct/:name', async (req, res) => {
+  try {
+    let othername = req.params.name;
+    if(othername == null){ 
+      return res.status(200).send({   });
+    } 
+    let args = {
+      $or: [
+        { othername: othername },
+        { name: othername }
+      ]
+    };
+
+    const othername1 = await productmodule.findOne(args).select("name").select("Serialrequired");
+
+     if(!othername1){
+      return res.status(200).send({   });
+    }
+    if(othername1 == null){ 
+      return res.status(200).send({   });
+    } 
+    console.log(othername)
+    res.status(200).send({ othername1 });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ error: 'An error occurred while fetching products' });
+  }
+});
 
 
 
-
-
- 
-
-
-
-
-
-Router.get ('/fetchsaleproduct/:page',async(req,res)=>{
-
-
-   const perPage = 10;
-  const page = req.params.page ? req.params.page : 1;
-try {
-  
-
-
-  const {color,size,price,People,sale} = req.query
-   let args = {};
-  if (color ) args.color ={$in:color};
-  if (People ) args.People ={$in:People};
-  if (size ) args.size = {$in:size}
-  if (sale ) args.sale = new ObjectId(sale)
-  
-  if (price ) args.price = {$gte: parseInt(price[0]),$lte:parseInt(price[1])}
- 
-
-
-  const sortField = req.query.sortField || 'createdAt';
-  const sortOrder = req.query.sortOrder && req.query.sortOrder === 'desc' ? -1 : 1;
- 
-
-  const pipeline = [
-    { $match: { sale: { $exists: true } } },
-    { $match:   args },
-    { $group: { _id: '$name', doc: { $first: '$$ROOT' } } },
-    { $skip: (page - 1) * perPage },
-    { $limit: perPage },
-    { $replaceRoot: { newRoot: '$doc' } },
-    {
-      $lookup: {
-        from: 'categories',
-        localField: 'category',
-        foreignField: '_id',
-        as: 'category',
-      },
-    },
-    {
-      $project: {
-        'category.categoryphoto': 0,
-        'category.photo': 0,
-        'category.subcategories': 0,
-        'category.__v': 0,
-        __v: 0,
-        photo0: 0,
-        photo1: 0,
-        photo2: 0,
-        photo3: 0,
-        photo: 0,
-      },
-    },
-  ];
-
-
+//PRODUCTNAME
+Router.get('/productnames', async (req, res) => {
+  try {
      
-   
-  const product = await productmodule.aggregate(pipeline).sort({[sortField]: sortOrder})
 
-  const products = await productmodule.find({ sale: { $exists: true },sale:sale }).select('color').select('size')
-       
-  
-  
-       
-  let uniqueColors = Array.from(new Set(products.map(item => item.color)));
- 
-
-res.status(200).send(
-   {product,uniqueColors}
-  
-);
-} catch (error) {
-  
-}
-
-})
-
-
-
-
-
-
-
- 
-
- 
-
-
- 
-
-
-
-
-Router.get('/totalproduct', async (req, res) => {
-
-
-  const {color,size,price,People,category} = req.query
-      let args = {};
-     if (color ) args.color ={$in:color};
-     if (People ) args.People ={$in:People};
-     if (category ) args.category = new ObjectId(category)
-     if (size ) args.size = {$in:size}
-     if (price ) args.price = {$gte: parseInt(price[0]),$lte:parseInt(price[1])}
- 
-
-  try {
-    const pipeline = [
-      
-      { $match:   args},   
-  
-      {
-        $lookup: {
-          from: 'categories',
-          localField: 'category',
-          foreignField: '_id',
-          as: 'category',
-        },
-      },
-      {
-        $project: {
-          'category.categoryphoto': 0,
-          'category.photo': 0,
-          'category.subcategories': 0,
-          'category.__v': 0,
-          __v: 0,
-          photo0: 0,
-          photo1: 0,
-          photo2: 0,
-          photo3: 0,
-          photo: 0,
-        },
-      },
-      
-    ];
-    const uniqueProductNames = await productmodule.aggregate(pipeline)
-    
-    
-    const uniqueProductNamesCount = uniqueProductNames.length;
- 
-    res.status(200).send({
-      success: true,
-      uniqueProductNamesCount,
-    });
-  } catch (error) {
-     res.status(400).send({
-      message: "Error in counting unique product names",
-      error,
-      success: false,
-    });
+      const products = await productmodule.find({}).select("name").select("othername")
+      let array1 = products.map(product => product.name);
+      let othername = products.map(product => product.othername);
+      let array2 = othername.flat().filter(item => typeof item === 'string');
+      let productNames = array1.concat(array2);
+         res.status(200).send({ productNames });
+  } catch (err) {
+      console.error(err);
+      res.status(500).send({ error: 'An error occurred while fetching products' });
   }
 });
 
 
-Router.get('/uniqueproductnamescount', async (req, res) => {
-
-
-  const {color,size,price,People,category} = req.query
-      let args = {};
-     if (color ) args.color ={$in:color};
-     if (People ) args.People ={$in:People};
-     if (category ) args.category = new ObjectId(category)
-     if (size ) args.size = {$in:size}
-     if (price ) args.price = {$gte: parseInt(price[0]),$lte:parseInt(price[1])}
- 
-
-  try {
-    const pipeline = [
-      { $match: { sale: { $exists: false } } },
-      { $match:   args},   
-      { $group: { _id: '$name', doc: { $first: '$$ROOT' } } },
-      { $replaceRoot: { newRoot: '$doc' } },
-      {
-        $lookup: {
-          from: 'categories',
-          localField: 'category',
-          foreignField: '_id',
-          as: 'category',
-        },
-      },
-      {
-        $project: {
-          'category.categoryphoto': 0,
-          'category.photo': 0,
-          'category.subcategories': 0,
-          'category.__v': 0,
-          __v: 0,
-          photo0: 0,
-          photo1: 0,
-          photo2: 0,
-          photo3: 0,
-          photo: 0,
-        },
-      },
-      
-    ];
-    const uniqueProductNames = await productmodule.aggregate(pipeline)
-    
-    
-    const uniqueProductNamesCount = uniqueProductNames.length;
- 
-    res.status(200).send({
-      success: true,
-      uniqueProductNamesCount,
-    });
-  } catch (error) {
-     res.status(400).send({
-      message: "Error in counting unique product names",
-      error,
-      success: false,
-    });
-  }
-});
-
-
-Router.get ('/totalsaleproduct', async (req, res) => {
 
 
 
-  
-  const {color,size,price,People,category,sale} = req.query
-      let args = {};
-     if (color ) args.color ={$in:color};
-     if (People ) args.People ={$in:People};
-     if (sale ) args.sale = new ObjectId(sale)
-     if (category ) args.category = new ObjectId(category)
-     if (size ) args.size = {$in:size}
-     if (price ) args.price = {$gte: parseInt(price[0]),$lte:parseInt(price[1])}
- 
-  try {
 
-    const pipeline = [
-      { $match: { sale: { $exists: true } } },
-      { $match:   args},   
-      { $group: { _id: '$name', doc: { $first: '$$ROOT' } } },
-      { $replaceRoot: { newRoot: '$doc' } },
-      {
-        $lookup: {
-          from: 'categories',
-          localField: 'category',
-          foreignField: '_id',
-          as: 'category',
-        },
-      },
-      {
-        $project: {
-          'category.categoryphoto': 0,
-          'category.photo': 0,
-          'category.subcategories': 0,
-          'category.__v': 0,
-          __v: 0,
-          photo0: 0,
-          photo1: 0,
-          photo2: 0,
-          photo3: 0,
-          photo: 0,
-        },
-      },
-      
-    ]; 
 
-    const sale = await productmodule.aggregate(pipeline)
-    const total = sale.length;
-     res.status(200).send({
-      success: true,
-      total,
-    });
-  } catch (error) {
-     res.status(400).send({
-      message: "Error in product count",
-      error,
-      success: false,
-    });
-  }
-})
 
- 
+
+
+
+
+
+
+

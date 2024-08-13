@@ -1,0 +1,40 @@
+// pehle npm se mongodb driver install karein
+// npm install mongodb
+
+const { MongoClient } = require('mongodb');
+
+// MongoDB connection URL aur database ka naam
+const url = 'mongodb://localhost:27017';
+const dbName = 'mydatabase';
+
+async function main() {
+    const client = new MongoClient(url, { useNewUrlParser: true, useUnifiedTopology: true });
+
+    try {
+        // MongoDB server se connect karein
+        await client.connect();
+        console.log('Connected successfully to server');
+
+        const db = client.db(dbName);
+
+        // Collection ka naam
+        const collection = db.collection('products');
+
+        // Products ka array jo insert karna hai
+        const products = [
+            { name: 'Product 1', price: 100, category: 'Category 1' },
+            { name: 'Product 2', price: 200, category: 'Category 2' },
+            { name: 'Product 3', price: 300, category: 'Category 3' }
+        ];
+
+        // insertMany method ka use karke multiple products ko insert karna
+        const result = await collection.insertMany(products);
+        console.log(`${result.insertedCount} products were inserted`);
+
+    } finally {
+        // client ko close karna
+        await client.close();
+    }
+}
+
+main().catch(console.error);

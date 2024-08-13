@@ -1,4 +1,5 @@
 const user = require("../module/user")
+const usermodule = require("../module/user")
 const express = require("express")
 const jwt = require('jsonwebtoken')
 const Router = express.Router()
@@ -8,7 +9,7 @@ let Isadmin = require("../middleware/admin")
 const bcrypt= require('bcryptjs')
 const product = require("../module/product")
 const nodemailer = require("nodemailer");
-
+ 
 
 require('dotenv').config();
 
@@ -61,81 +62,92 @@ return res.status(200).send({
         }
      
 })
-// login
-Router.post ('/login',async(req,res)=>{
-      
-    const {password,email,notifytoken} = req.body    
+
+
+function getSecondsUntil3AM() {
+    const now = new Date();
+    const target = new Date(now);
+    target.setHours(3, 0, 0, 0); // Set target to 3 AM of the current day
     
-          if(!email){
-            return res.status(200).send({
-                success : false,
-                massage :"enter email or password"
-            })
-         }
-         if(!password){
-            return res.status(200).send({
-                success : false,
-                massage :"enter email or password"
-            })
-         }
-        
-            
-            try{
-                 let User = await user.findOne({email: req.body.email})
-              
-                if(!User){
-                    return res.status(200).send({
-                        success : false,
-                        massage :"Incorrect email or password. Please try again"
-                    })
-                }
+    if (now.getHours() >= 3) {
+        // If current time is past 3 AM, set target to 3 AM of the next day
+        target.setDate(target.getDate() + 1);
+    }
 
-                if(notifytoken){
-                    User.notifytoken =notifytoken
-                    User.save()
-                }
-                if(User.role == 5){
-                    return res.status(200).send({
-                        success : false,
-                        massage :"user is blocked"
-                    })
-                }
-              const passwordcompare = await bcrypt.compare(password,User.password)
-              if(!passwordcompare){
-                return res.status(200).send({
-                    success : false,
-                    massage :"Incorrect email or password. Please try again"
-                })
-              }
-              if(user.verifytoken){
+    return Math.floor((target - now) / 1000); // Return the difference in seconds
+}
 
-                  await user.findOneAndUpdate(
-                      {email: req.body.email},
-                      { $set: { verifytoken: ""  } },
-                      );
-                    }
-                      
-                const data ={User :{id :User.id}}
+// login
+Router.post('/login', async (req, res) => {
+    const { password, email, notifytoken } = req.body;
 
+    if (!email || !password) {
+        return res.status(400).send({
+            success: false,
+            message: "Enter email and password"
+        });
+    }
 
+    try {
+        const user = await usermodule.findOne({ email }); // Use usermodule model
 
-    const authtoken = jwt.sign(data,jwtsecret)
-    return res.status(200).send({
-        authtoken :authtoken,
-        success : true,
-        massage :"Login Successfully!"
-    })
-                    
-            }catch(error){
-                res.status(404).send(error)
-            }
-         
-    })
+        if (!user) {
+            return res.status(401).send({
+                success: false,
+                message: "Incorrect email or password. Please try again"
+            });
+        }
+
+        if (notifytoken) {
+            user.notifytoken = notifytoken;
+            await user.save();
+        }
+
+        if (user.role === 5) {
+            return res.status(403).send({
+                success: false,
+                message: "User is blocked"
+            });
+        }
+
+        const passwordCompare = await bcrypt.compare(password, user.password);
+        if (!passwordCompare) {
+            return res.status(201).send({
+                success: false,
+                message: "Incorrect email or password. Please try again"
+            });
+        }
+
+        if (user.verifytoken) {
+            await usermodule.findOneAndUpdate(
+                { email },
+                { $set: { verifytoken: "" } }
+            );
+        }
+        const secondsUntil3AM = getSecondsUntil3AM();
+        const tokenExpiration = secondsUntil3AM; // Time in seconds until 3 AM
+          const data = { User: { id: user.id } };
+        const authtoken = jwt.sign(data, jwtsecret, { expiresIn: tokenExpiration });
+
+        return res.status(200).send({
+            authtoken,
+            success: true,
+            message: "Login Successfully!"
+        });
+
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).send({
+            success: false,
+            message: "Internal Server Error"
+        });
+    }
+});
+
 
     // get user
     Router.get('/getuser',fetchuser,async(req,res)=>{
-
-        try { 
+         try { 
             let iid = await req.user.id
            const User = await user.findById(iid).select("-password")
             res.send(User)
@@ -146,7 +158,7 @@ Router.post ('/login',async(req,res)=>{
     })
 
     //all users for admin
-    Router.get('/getalluser/:page',fetchuser,Isadmin,async(req,res)=>{
+    Router.get('/getalluser',async(req,res)=>{
         let keyword = req.query.keyword
         let role = req.query.role
          let args ={}
@@ -154,13 +166,9 @@ Router.post ('/login',async(req,res)=>{
             if (keyword) args.name =   { $regex: keyword, $options: "i" } 
        
            if (role ) args.role = {$in:role}
-   
-            const perPage = 10;
-            const page = req.params.page ? parseInt(req.params.page) : 1
             
           const User = await user.find(args).select("-password").sort({ createdAt: -1 }) 
-          .skip((page - 1) * perPage)
-          .limit(perPage)
+          
 
           const totaluser = await user.countDocuments( args);
             res.send({User,totaluser})
@@ -183,6 +191,8 @@ let role = req.body.role;
          } 
         
     })
+
+    
 
     //change
     Router.post ('/change',fetchuser,[
@@ -219,8 +229,8 @@ let role = req.body.role;
                     User =await user.findByIdAndUpdate(User.id ,{password:secnewpass},
                         {new:true})
                     
-                  res.json({User})
-              } catch (error) { 
+                        return res.status(200).json("Success! Your password has been updated")
+                    } catch (error) { 
                } 
            
 
@@ -284,8 +294,7 @@ Router.post("/sendpasswordlink",async(req,res)=>{
                 Simply enter this OTP on the password reset page, and you'll be prompted to create a new password for your account. If you didn't request this password reset, please ignore this message or contact our support team immediately.
                 
                 Best Regards,
-                [TAVGUN BOUTIQUE]
-                [Contact us: 9664220230,Instagram: @tavgun_boutique]  `
+                  `
             }
 
             transporter.sendMail(mailOptions,(error,info)=>{
@@ -331,4 +340,10 @@ Router.post('/resetPasswordConfirm', async (req, res) => {
     }
   });
 
+
+
+
+
+ 
+ 
 module.exports =Router

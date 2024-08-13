@@ -1,3 +1,4 @@
+const { text } = require('express');
 const mongoose = require('mongoose')
 
 const productSchema = new mongoose.Schema(
@@ -6,74 +7,46 @@ const productSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    slug: {
-      type: String,
-      required: true,
+    ordercome :{
+      type: Number,
+      default:0
     },
-    description: {
-      type: String,
-      required: true,
-    },
-    size: {
-      type: String,
-      required: true,
-      lowercase: true,
-    },
-    color: {
-      type: String,
-      required: true,
-      lowercase: true,
-    },
-    review: {
-      type: Object,
-      lowercase: true,
-    },
-    price: {
+
+    salingprice: {
       type: Number,
       required: true,
     },
-    wdprice: {
+    MRP: {
       type: Number,
+      required: true,
     },
+    
     category: {
-      type: mongoose.ObjectId,
-      ref: "Category",
-      required: true,
-    },
-    sale: {
-      type: mongoose.ObjectId,
-      ref: "Sale", 
-    },
-    salediscount: {
       type: String,
+       required: true,
     },
-    quantity: {
+    instock: {
       type: Number,
-      required: true,
+      default:0
     },
-    photo0: {
-      data: Buffer,
-      contentType: String,
+    purchasestock: {
+      type: Number,
+      default:0
     },
-    People:{
-      type:String,
-      required:true
+    totalsale: {
+      type: Number,
+      default:0
     },
-    photo1: {
-      data: Buffer,
-      contentType: String,
+    
+    othername: {
+      type:Object,
     },
-    photo2: {
-      data: Buffer,
-      contentType: String,
+    serialNumbers:{
+      type:Object
     },
-    photo3: {
-      data: Buffer,
-      contentType: String,
-    },
-    shipping: {
-      type: Boolean,
-    },
+    Serialrequired:{
+      type:String
+    }
 
     
   },
