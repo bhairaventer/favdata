@@ -11,6 +11,10 @@ const productSchema = new mongoose.Schema(
       type: Number,
       default:0
     },
+    totalDamaged :{
+      type: Number,
+      default:0
+    },
 
     salingprice: {
       type: Number,
@@ -21,10 +25,7 @@ const productSchema = new mongoose.Schema(
       required: true,
     },
     
-    category: {
-      type: String,
-       required: true,
-    },
+    category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
     instock: {
       type: Number,
       default:0

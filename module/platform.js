@@ -1,7 +1,7 @@
 const mongoose = require('mongoose')
 const { Schema } = mongoose;
 const PlatformSchema = new Schema({
-    name:{type:"string", require : true , lowercase: true},
+    name:{type:"string", require : true , },
      
     slug: {
            type: String,

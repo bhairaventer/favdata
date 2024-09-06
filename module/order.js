@@ -10,6 +10,11 @@ const orderSchema = new mongoose.Schema(
     OrderId:{type:String,required:true},
     Product : {type:Object ,required:true},
     TransferPrice :{type :Number },
+    affectedPurchases: [{
+      purchaseId: mongoose.Schema.Types.ObjectId,
+      productid: mongoose.Schema.Types.ObjectId,
+      quantity: Number
+  }],
     Salesamount :{type :Number },
     Quntity :{type :Number ,required :true},
     Tax :{type :String},
@@ -46,7 +51,7 @@ const orderSchema = new mongoose.Schema(
     Lostdate:{type :Date },
     returndate:{type :Date },
     ReceivedDate:{type :Date },
-
+    totalCost:{type:Number}
   },
   { timestamps: true }
 );

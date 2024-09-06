@@ -1,11 +1,33 @@
-const mongoose = require('mongoose')
+const mongoose = require('mongoose');
 
-const purchaseSchema = new mongoose.Schema(
+// Assuming you have a Product model defined somewhere
+const Schema = mongoose.Schema;
+
+const purchaseSchema = new Schema(
   {
-    name: {
-      type: Object,
-      required: true,
-    },
+    name: [
+      {
+        productid: {
+          type: Schema.Types.ObjectId, 
+          ref: 'Products', // Refer to the Product model
+          required: true,
+        },
+        quantity: {
+          type: String,
+          required: true,
+        },
+        amount: {
+          type: String,
+          required: true,
+        },
+        serialNumbers:{type:Object},
+        rateper: {
+          type: String,
+          required: true,
+        },
+        soldQuantity: { type: Number, default: 0 }
+      }
+    ],
     
     billno: {
       type: Number,
@@ -19,12 +41,8 @@ const purchaseSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    
-   
-
-    
   },
   { timestamps: true }
 );
- 
-module.exports =mongoose.model("Purchase",purchaseSchema)
+
+module.exports = mongoose.model('Purchase', purchaseSchema);

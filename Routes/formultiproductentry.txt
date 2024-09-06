@@ -1,40 +1,151 @@
-// pehle npm se mongodb driver install karein
-// npm install mongodb
+Router.post('/addmultiorders', middle, async (req, res) => {
+  const orders = req.body; // Expecting an array of order objects
+    if (!Array.isArray(orders) || orders.length === 0) {
+      return res.status(400).send({ error: "No orders provided" });
+  }
 
-const { MongoClient } = require('mongodb');
+       for (const orderData of orders) {
+          const {
+              Platform,
+              OrderId,
+              Product,
+              Quntity,
+              TransferPrice,
+              Salesamount,
+              Tax,
+              orderdate,
+              Paymentmode,
+              Address,
+              Pincode,
+              State,
+              status,
+              MobNo,
+              Dispatchbydate
+          } = orderData;
 
-// MongoDB connection URL aur database ka naam
-const url = 'mongodb://localhost:27017';
-const dbName = 'mydatabase';
+          // Validate required fields
+          // if (!Platform || !OrderId || !Product || !Quntity || !TransferPrice || !SalesAmount || !Tax || !Paymentmode || !Address || !Pincode || !State || !MobNo || !Dispatchbydate) {
+          //     return res.status(400).send({ error: "Missing required fields in order data" });
+          // }
 
-async function main() {
-    const client = new MongoClient(url, { useNewUrlParser: true, useUnifiedTopology: true });
+          let productdata = [];
+           if (Product?.includes("+")) {
+           
+                  const saleData = await combomodule.findOne({ name: Product });
+                   if (saleData) {
+                      for (const element of saleData.products) {
+ 
+                          // Fetch current sales data
+                          const productSaleData = await productmodule.findById(element).select("ordercome name");
+                          if (productSaleData) {
+                              let productEntry = { _id: productSaleData._id, name: productSaleData.name };
+                              productdata.push(productEntry);
 
-    try {
-        // MongoDB server se connect karein
-        await client.connect();
-        console.log('Connected successfully to server');
+                              // Update the sales count
+                              await productmodule.findByIdAndUpdate(
+                                  element,
+                                  { $inc: { ordercome: parseInt(Quntity) } }
+                              );
+                          } else {
+                              //console.log(`Product ${element} not found`);
+                          }
+                      }
+                  } else {
+                      //console.log(`Combo ${Product} not found`);
+                  }
+               
+          } else {
+            
+                  const saleData = await productmodule.findOne({ name: Product }).select("ordercome name");
+                  if (saleData) {
+                      productdata.push({ _id: saleData._id, name: saleData.name });
 
-        const db = client.db(dbName);
+                       await productmodule.findOneAndUpdate(
+                          { name: Product },
+                          { $inc: { ordercome: parseInt(Quntity) } }
+                      );
+                  } else {
+                      //console.log(`Product ${Product} not found`);
+                  }
+               
+          }
 
-        // Collection ka naam
-        const collection = db.collection('products');
+          // Create and save the order
+    
 
-        // Products ka array jo insert karna hai
-        const products = [
-            { name: 'Product 1', price: 100, category: 'Category 1' },
-            { name: 'Product 2', price: 200, category: 'Category 2' },
-            { name: 'Product 3', price: 300, category: 'Category 3' }
-        ];
 
-        // insertMany method ka use karke multiple products ko insert karna
-        const result = await collection.insertMany(products);
-        console.log(`${result.insertedCount} products were inserted`);
+          
+              const order = new ordermodule({
+                  Platform,
+                  productdata,
+                  OrderId,
+                  Product,
+                  Quntity,
+                  TransferPrice,
+                  Salesamount,
+                  orderdate,
+                  Tax,
+                  Paymentmode,
+                  Address,
+                  Pincode,
+                  State,
+                  MobNo,
+                  Dispatchbydate,
+                  status
+              });
+               const savedOrder = await order.save();
+           
+      }
 
-    } finally {
-        // client ko close karna
-        await client.close();
-    }
-}
+      res.status(201).send({ success: true, message: "Orders processed successfully" });
 
-main().catch(console.error);
+  
+});
+
+
+
+
+
+
+
+
+  // try {
+  //   // Loop through each serial number in the array
+  //   for (const serialNumberToReturn of serialNumbers) {
+  //     let remainingQuantity = 1; // We want to return 1 quantity per serial number
+  
+  //     // Fetch purchases that contain the specific serial number
+  //     const purchaseData = await purchasemodule.find({
+  //       "name.serialNumbers.serial": serialNumberToReturn
+  //     }).sort({ billdate: -1 });
+  
+  //     for (const purchase of purchaseData) {
+  //       for (const item of purchase.name) {
+  //         if (item.serialNumbers.some(serialObj => serialObj.serial === serialNumberToReturn)) {
+  //           let allocatedQuantity = Math.min(remainingQuantity, item.soldQuantity);
+  
+  //           // Decrease the sold quantity in the purchase record
+  //           item.soldQuantity -= allocatedQuantity;
+  
+  //           // Update the purchase record in the database
+  //           await purchasemodule.updateOne(
+  //             { _id: purchase._id, "name.productid": item.productid },
+  //             { $set: { "name.$.soldQuantity": item.soldQuantity } }
+  //           );
+  
+  //           // Decrease the remaining quantity to be returned
+  //           remainingQuantity -= allocatedQuantity;
+  
+  //           // If we've returned the quantity, break out of the loop
+  //           if (remainingQuantity <= 0) break;
+  //         }
+  //       }
+  //       if (remainingQuantity <= 0) break;
+  //     }
+  //   }
+  
+  //   res.status(200).json({ message: "Quantities returned successfully." });
+  // } catch (error) {
+  //   console.error('Error returning quantities:', error);
+  //   res.status(500).json({ error: 'Internal Server Error' });
+  // }

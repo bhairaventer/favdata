@@ -1,13 +1,11 @@
 const express = require("express")
 const Router = express.Router()
 const middle = require('../middleware/middle')
-const{body,validationResult} = require("express-validator")
-const { default: slugify } = require("slugify")
-const isAdmin = require("../middleware/admin")
-const productmodule = require("../module/product")
-const formidable = require("express-formidable")
-const fs = require("fs")
+   const productmodule = require("../module/product")
+const combomocudle = require("../module/comboproduct")
+ const fs = require("fs")
  const order = require("../module/order")
+const purchase = require("../module/purchase")
 const ObjectId = require('mongodb').ObjectId;
  
 
@@ -17,11 +15,11 @@ const ObjectId = require('mongodb').ObjectId;
 
 //addproduct
  
-Router.post("/addproduct",async(req,res)=>{
+Router.post("/addproduct",middle, async(req,res)=>{
     let { name, salingprice,category, Serialrequired,MRP,othername} = req.body;
    
 
-     console.log(req.body)
+     //console.log(req.body)
     switch (true) {
       case !name:
         return res.status(500).send({ error: 'Name is Required' });
@@ -35,16 +33,18 @@ Router.post("/addproduct",async(req,res)=>{
     
         const checkproduct = await productmodule.findOne({ name });
         const othername1 = await productmodule.findOne( {othername :othername}).select("othername")
-  
+  //console.log(othername1)
         if(checkproduct){
             return res.status(200).send({
                 success: false,
                 message: "product Already Exisits",
+                data:checkproduct
+
               });
         }
 
         if(othername1){
-          console.log("yery")
+          //console.log("yery")
             return res.status(200).send({
                 success: false,
                 message: "serial Already Exisits",
@@ -53,14 +53,35 @@ Router.post("/addproduct",async(req,res)=>{
         }
 
 
+        let args = {
+          $or: [
+            { othername: othername },
+            { othername: name },
+            { name: othername },
+            { name: name }
+          ]
+        };
+    
+        const comboothername1 = await combomocudle.findOne(args) ;
+         if(comboothername1){ 
+          return res.status(200).send({
+            success: false,
+            message: "serial Already Exisits",
+            data:comboothername1
+          });
+        }    
+
         const product1 = new productmodule({
            name, salingprice, category ,MRP,othername,Serialrequired
           
         })
        
         const saveproduct = await product1.save()
-        res.json(saveproduct)
-    
+        res.status(200).send({
+          success: true,
+          message: "Product Successfully created",
+          data:comboothername1
+        });    
 })
 
 
@@ -70,7 +91,7 @@ Router.post("/addproduct",async(req,res)=>{
 
 
 
-Router.get('/top5products', async(req, res) => {
+Router.get('/top5products',middle, async(req, res) => {
   try {
     const top5Products = await productmodule.find().sort({ totalsale: -1 }).limit(5);
     res.json(top5Products);
@@ -82,10 +103,10 @@ Router.get('/top5products', async(req, res) => {
 
 
 
-Router.put("/updateproduct/:id", async (req, res) => {
+Router.put("/updateproduct/:id",middle, async (req, res) => {
   const { id } = req.params;
   const {name,category,MRP,salingprice,othername } = req.body;
- 
+ //console.log(req.body)
 
   const getproname = await productmodule.findById(id);
   if(name !== undefined){
@@ -114,14 +135,16 @@ Router.put("/updateproduct/:id", async (req, res) => {
 });
 
 
-Router.delete("/deleteproduct/:id", async(req,res)=>{
+Router.delete("/deleteproduct/:id",middle, async(req,res)=>{
     try {
     
     let product = await  productmodule.findById( req.params.id) 
     console.log(product)
     if(!product){return res.status(404).send("not found")}
-let avinorder = await  order.findOne({Product:product.name}) 
- if(avinorder){return res.status(404).send("you can't delete this product")}
+    let avinorder = await  order.findOne({Product:product.name}) 
+    let purchaseorder = await  purchase.findOne({"name.productid":req.params.id}) 
+  if(purchaseorder){return res.status(202).send("you can't delete this product")}
+ if(avinorder){return res.status(202).send("you can't delete this product")}
      
     product =await productmodule.findByIdAndDelete(req.params.id)
     res.json({"success":"category has been deleted",product})
@@ -136,32 +159,68 @@ module.exports =Router
  
 
 
-Router.get('/fetchproductforadmin/:page', async (req, res) => {
+Router.get('/fetchproductforadmin/:page', middle, async (req, res) => {
   try {
       const page = parseInt(req.params.page) || 1;
       const limit = 20; // Number of products per page
       const skip = (page - 1) * limit;
-
+       const searchQuery = req.query.search || ''; // Get search query from request
+console.log(searchQuery)
       const products = await productmodule.aggregate([
-          { $skip: skip },
-          { $limit: limit },
-          { $sort: { _id: 1 } }, // Sort by ID or any other field
-          
-          
+        {
+          $addFields: {
+            priority: {
+              $indexOfArray: [
+                [
+                  'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'
+                ],
+                { $toLower: { $substrCP: ["$name", 0, 1] } }
+              ]
+            }
+          }
+        },
+        {
+          $match: {
+            $or: [
+              { name: { $regex: searchQuery, $options: 'i' } }, // Case-insensitive search on the name field
+              { MRP: { $regex: searchQuery, $options: 'i' } },   // Case-insensitive search on the MRP field
+              { salingprice: { $regex: searchQuery, $options: 'i' } },   // Case-insensitive search on the MRP field
+              { Serialrequired: { $regex: searchQuery, $options: 'i' } },   // Case-insensitive search on the MRP field
+              { othername: { $regex: searchQuery, $options: 'i' } },   // Case-insensitive search on the MRP field
+              { instock: { $regex: searchQuery, $options: 'i' } },   // Case-insensitive search on the MRP field
+            ]
+          }
+        },        
+        { $sort: { priority: 1, name: 1 } }, // Sort by priority first, then by name
+        {
+          $lookup: {
+            from: 'categories', // Collection name in MongoDB
+            localField: 'category', // Field in the product documents
+            foreignField: '_id', // Field in the category documents
+            as: 'category'
+          }
+        },
+        { $skip: skip },
+        { $limit: limit }
       ]);
-      const totalCount = await productmodule.countDocuments({});
 
- 
-      res.status(200).send({ products ,totalCount});
+      const totalCount = await productmodule.countDocuments({
+        name: { $regex: searchQuery, $options: 'i' } // Ensure totalCount respects the search query
+      });
+
+      res.status(200).send({ products, totalCount });
   } catch (err) {
       console.error(err);
       res.status(500).send({ error: 'An error occurred while fetching products' });
   }
 });
 
+
+
+
 //fetch product by othername 
 
-Router.get('/fetchsingleproduct/:name', async (req, res) => {
+Router.get('/fetchsingleproduct/:name',middle, async (req, res) => {
   try {
     let othername = req.params.name;
     if(othername == null){ 
@@ -182,7 +241,7 @@ Router.get('/fetchsingleproduct/:name', async (req, res) => {
     if(othername1 == null){ 
       return res.status(200).send({   });
     } 
-    console.log(othername)
+    //console.log(othername)
     res.status(200).send({ othername1 });
   } catch (err) {
     console.error(err);
@@ -193,7 +252,7 @@ Router.get('/fetchsingleproduct/:name', async (req, res) => {
 
 
 //PRODUCTNAME
-Router.get('/productnames', async (req, res) => {
+Router.get('/productnames',middle, async (req, res) => {
   try {
      
 
