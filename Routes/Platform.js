@@ -19,9 +19,22 @@ Router.get('/fetchallPlatform',middle, async (req, res) => {
 });
 
 // Fetch all platform details with aggregated sales data
-Router.get('/fetchallPlatformdetail',middle, async (req, res) => {
+Router.get('/fetchallPlatformdetail', middle, async (req, res) => {
     try {
+        const { startDate, endDate } = req.query;
+
+        // Convert startDate and endDate to Date objects if provided
+        const dateFilter = {};
+        if (startDate) dateFilter.$gte = new Date(startDate);
+        if (endDate) dateFilter.$lte = new Date(endDate);
+
+        // Default date filter for the entire date range
+        const matchFilter = dateFilter.$gte || dateFilter.$lte ? { createdAt: dateFilter } : {};
+
         const totalSalesByPlatform = await order.aggregate([
+            {
+                $match: matchFilter // Match orders based on the createdAt date range
+            },
             {
                 $lookup: {
                     from: "platforms", // The collection to join
@@ -71,6 +84,7 @@ Router.get('/fetchallPlatformdetail',middle, async (req, res) => {
                 }
             }
         ]);
+
         res.json(totalSalesByPlatform);
     } catch (error) {
         console.error('Error fetching platform details:', error);
@@ -86,9 +100,23 @@ Router.get('/fetchallPlatformdetail',middle, async (req, res) => {
 
 
 
+
 Router.get('/fetchallPlatformCostDetail', async (req, res) => {
     try {
+        const { startDate, endDate } = req.query;
+
+        // Convert startDate and endDate to Date objects if provided
+        const dateFilter = {};
+        if (startDate) dateFilter.$gte = new Date(startDate);
+        if (endDate) dateFilter.$lte = new Date(endDate);
+
+        // Default date filter for the entire date range
+        const matchFilter = dateFilter.$gte || dateFilter.$lte ? { createdAt: dateFilter } : {};
+
         const totalCostByPlatform = await order.aggregate([
+            {
+                $match: matchFilter // Match orders based on the createdAt date range
+            },
             {
                 $lookup: {
                     from: "platforms", // The collection to join
@@ -112,27 +140,25 @@ Router.get('/fetchallPlatformCostDetail', async (req, res) => {
                             ]
                         }
                     },
-                    
                     claimamount: {
                         $sum: {
-                            $cond: [{ $eq: ["$status", "Claim"] }, "$claimamount", 0] // Cost for DTO status
+                            $cond: [{ $eq: ["$status", "Claim"] }, "$claimamount", 0]
                         }
                     },
-                    
                     totalClaimRequiredQ: {
                         $sum: {
-                            $cond: [{ $eq: ["$claimrequired", "YES"] }, 1, 0] // Count of DTO status
+                            $cond: [{ $eq: ["$claimrequired", "YES"] }, 1, 0]
                         }
                     },
                     totalClaimAppliedQ: {
                         $sum: {
-                            $cond: [{ $eq: ["$claimapplied", "YES"] }, 1, 0] // Count of DTO status
+                            $cond: [{ $eq: ["$claimapplied", "YES"] }, 1, 0]
                         }
-                    },
-                    
+                    }
                 }
             }
         ]);
+
         res.json(totalCostByPlatform);
     } catch (error) {
         console.error('Error fetching platform cost details:', error);

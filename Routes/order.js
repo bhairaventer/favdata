@@ -1531,26 +1531,38 @@ Router.get('/trackingid/:trackingnumber', middle, async (req, res) => {
 
  
  
-Router.get('/fetchallstatedetail',middle, async (req, res) => {
+Router.get('/fetchallstatedetail', middle, async (req, res) => {
   try {
-      // Example static filters for state and platform
-      const states = [];
-      const platforms = []; // List of platform IDs you want to filter by
+      const { startDate, endDate } = req.query;
+
+      // Convert startDate and endDate to Date objects if provided
+      const dateFilter = {};
+      if (startDate) dateFilter.$gte = new Date(startDate);
+      if (endDate) dateFilter.$lte = new Date(endDate);
 
       // Construct the match stage
       const pipeline = [];
 
       // Create a match condition
       const matchCondition = {};
-      
+
+      // Add date filter to match condition
+      if (dateFilter.$gte || dateFilter.$lte) {
+          matchCondition.createdAt = dateFilter; // Add date filtering
+      }
+
+      // Example static filters for state and platform
+      const states = [];
+      const platforms = [];
+
       if (states.length > 0) {
           matchCondition.State = { $in: states };
       }
-      
+
       if (platforms.length > 0) {
           matchCondition.Platform = { $in: platforms };
       }
-      
+
       // Add the match stage if there are any filters
       if (Object.keys(matchCondition).length > 0) {
           pipeline.push({ $match: matchCondition });
@@ -1574,14 +1586,14 @@ Router.get('/fetchallstatedetail',middle, async (req, res) => {
               _id: { State: "$State", Platform: "$platformDetails.name" }, // Group by State and Platform name
               totalSales: { $sum: "$Salesamount" },
               totalSalesQ: { $sum: 1 },
-               totalrefund: { 
+              totalrefund: { 
                   $sum: { 
                       $cond: [{ $eq: ["$refundCondition", "YES"] }, "$Salesamount", 0] 
                   } 
               },
               totalrefundQ: { 
                   $sum: { 
-                    $cond: [{ $eq: ["$refundCondition", "YES"] }, 1, 0]
+                      $cond: [{ $eq: ["$refundCondition", "YES"] }, 1, 0] 
                   } 
               }
           }
@@ -1591,13 +1603,13 @@ Router.get('/fetchallstatedetail',middle, async (req, res) => {
           $group: {
               _id: "$_id.State", // Group by State
               platforms: { 
-                $push: {
-                  Platform: "$_id.Platform",
-                  totalSales: "$totalSales",
-                   totalrefund: "$totalrefund",
-                   totalSalesQ: "$totalSalesQ",
-                  totalrefundQ: "$totalrefundQ"
-              }
+                  $push: {
+                      Platform: "$_id.Platform",
+                      totalSales: "$totalSales",
+                      totalrefund: "$totalrefund",
+                      totalSalesQ: "$totalSalesQ",
+                      totalrefundQ: "$totalrefundQ"
+                  }
               }
           }
       });
@@ -1608,9 +1620,11 @@ Router.get('/fetchallstatedetail',middle, async (req, res) => {
       // Send the response
       res.json(totalSalesByStateAndPlatform);
   } catch (error) {
-       res.status(500).send('Server error');
+      console.error('Error fetching state details:', error);
+      res.status(500).send('Server error');
   }
 });
+
 
 
 

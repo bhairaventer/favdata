@@ -3,6 +3,7 @@ const Router = express.Router();
 const middle = require('../middleware/middle');
 const categorymodule = require("../module/category");
  const order = require("../module/order");
+const product = require("../module/product");
 
 // Fetch all categorys
 Router.get('/fetchallcategory', middle, async (req, res) => {
@@ -105,7 +106,7 @@ Router.delete("/deletecategory/:id",middle, async (req, res) => {
       return res.status(404).send("Not found");
     }
 
-    let checkorder = await order.findOne({ category: req.params.id });
+    let checkorder = await product.findOne({ category: req.params.id });
      if (checkorder) {
       return res.status(404).send("You can't delete this category");
     }
